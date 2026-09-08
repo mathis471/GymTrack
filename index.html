@@ -1,43 +1,34 @@
 <!doctype html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#111111">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="GymTrack">
-  <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="styles.css">
-  <title>GymTrack</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090a0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="GymTrack">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+<title>GymTrack</title>
 </head>
 <body>
-  <div id="app">
-    <header class="topbar">
-      <div>
-        <div class="eyebrow">TRAINING</div>
-        <h1 id="pageTitle">Mein Plan</h1>
-      </div>
-      <button id="quickAdd" class="icon-btn" aria-label="Übung hinzufügen">＋</button>
-    </header>
-
-    <main id="content"></main>
-
-    <nav class="tabbar">
-      <button class="tab active" data-tab="plan"><span>▦</span><small>Plan</small></button>
-      <button class="tab" data-tab="workout"><span>◎</span><small>Training</small></button>
-      <button class="tab" data-tab="progress"><span>↗</span><small>Fortschritt</small></button>
-      <button class="tab" data-tab="settings"><span>⚙</span><small>Einstellungen</small></button>
-    </nav>
-  </div>
-
-  <div id="modal" class="modal hidden">
-    <div class="sheet">
-      <div class="sheet-head"><h2 id="modalTitle">Übung</h2><button id="closeModal" class="icon-btn">×</button></div>
-      <div id="modalBody"></div>
-    </div>
-  </div>
-
+<div id="app">
+<header class="topbar">
+  <div><div class="eyebrow">GYMTRACK</div><h1 id="pageTitle">Mein Plan</h1></div>
+  <button id="quickAdd" class="icon-btn" aria-label="Hinzufügen">＋</button>
+</header>
+<main id="content"></main>
+<nav class="tabbar" aria-label="Hauptnavigation">
+  <button class="tab active" data-tab="plan"><span>▦</span><small>Plan</small></button>
+  <button class="tab" data-tab="workout"><span>◎</span><small>Training</small></button>
+  <button class="tab" data-tab="progress"><span>↗</span><small>Fortschritt</small></button>
+  <button class="tab" data-tab="settings"><span>⚙</span><small>Mehr</small></button>
+</nav>
+</div>
+<div id="toast" class="toast hidden"></div>
+<div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+  <div class="sheet"><div class="sheet-head"><h2 id="modalTitle">GymTrack</h2><button id="closeModal" class="icon-btn light">×</button></div><div id="modalBody"></div></div>
+</div>
 <script src="app.js"></script>
 </body>
 </html>
