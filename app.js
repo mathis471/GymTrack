@@ -240,5 +240,25 @@ function exportData(){const payload={...state,exportedAt:new Date().toISOString(
 function importData(ev){const f=ev.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=async()=>{try{const parsed=JSON.parse(r.result),n=normalize(parsed);if(!n)throw new Error();if(!confirm("Backup importieren und aktuelle lokale Daten ersetzen?"))return;state=n;await save();render();toast("Backup erfolgreich importiert.")}catch{toast("Backup ist ungültig oder beschädigt.")}finally{ev.target.value=""}};r.readAsText(f)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)}
 
-document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));$("quickAdd").onclick=quickAdd;$("closeModal").onclick=closeModal;$("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
-(async()=>{try{const old=await load();state=normalize(old)||state;await save();render();if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});}catch(err){console.error(err);seed(state);await save();render()}})();
+function bindUI(){
+  document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
+  const qa=$("quickAdd"); if(qa) qa.onclick=quickAdd;
+  const close=$("closeModal"); if(close) close.onclick=closeModal;
+  const modal=$("modal"); if(modal) modal.addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
+}
+async function boot(){
+  try{
+    const old=await load();
+    state=normalize(old)||state;
+  }catch(err){
+    console.warn("IndexedDB nicht verfügbar, starte mit lokalem Zustand.",err);
+    if(!state.plans.length) seed(state);
+  }
+  try{await save()}catch(err){console.warn("Speichern nicht verfügbar.",err)}
+  bindUI();
+  render();
+  window.__gymtrackReady=true;
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js?v=20260908g").catch(()=>{});
+}
+if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot,{once:true}); else boot();
