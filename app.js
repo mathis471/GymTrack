@@ -84,7 +84,16 @@ async function deletePlan(id){if(state.plans.length===1){toast("Der letzte Plan 
 function addToPlan(pid){const p=state.plans.find(x=>x.id===pid);openModal("Übung zum Plan hinzufügen",`<div class="form-grid">${state.library.filter(e=>!p.exerciseIds.includes(e.id)).map(e=>`<button class="choice" onclick="attach('${pid}','${e.id}')"><b>${esc(e.name)}</b><br><small>${e.defaultSets} Sätze · ${unitLabel(e.unit)}</small></button>`).join("")||`<div class="empty compact">Alle Übungen sind bereits im Plan.</div>`}</div>`)}
 async function attach(pid,eid){const p=state.plans.find(p=>p.id===pid);if(!p.exerciseIds.includes(eid))p.exerciseIds.push(eid);await save();closeModal();render()}
 async function removeFromPlan(pid,eid){const p=state.plans.find(p=>p.id===pid);p.exerciseIds=p.exerciseIds.filter(x=>x!==eid);await save();render()}
-function quickAdd(){if(currentTab==="plan"&&activePlan())addToPlan(activePlan().id);else newExercise()}
+function quickAdd(){
+  if(currentTab==="plan"){
+    openModal("Hinzufügen",`<div class="form-grid add-menu">
+      <button class="choice" onclick="newPlan()"><b>＋ Trainingsplan erstellen</b><small>Neuen Plan wie Push, Pull, Legs oder Ganzkörper anlegen</small></button>
+      ${activePlan()?`<button class="choice" onclick="addToPlan(\'${activePlan().id}\')"><b>＋ Übung zum Plan hinzufügen</b><small>Eine vorhandene Übung in „${esc(activePlan().name)}“ aufnehmen</small></button>`:""}
+      <button class="choice" onclick="newExercise()"><b>＋ Neue Übung erstellen</b><small>Eine Übung für deine Bibliothek anlegen</small></button>
+    </div>`);
+  } else if(currentTab==="settings") newExercise();
+  else newExercise();
+}
 function exportData(){const payload={...state,exportedAt:new Date().toISOString(),app:"GymTrack",schemaVersion:2};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`gymtrack-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast("Backup exportiert")}
 function importData(ev){const f=ev.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=async()=>{try{const parsed=JSON.parse(r.result),n=normalize(parsed);if(!n)throw new Error();if(!confirm("Backup importieren und aktuelle lokale Daten ersetzen?"))return;state=n;await save();render();toast("Backup erfolgreich importiert.")}catch{toast("Backup ist ungültig oder beschädigt.")}finally{ev.target.value=""}};r.readAsText(f)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)}
