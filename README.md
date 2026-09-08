@@ -1,22 +1,16 @@
-# GymTrack v2
+# GymTrack v2 — Liquid Glass
 
-Mobile-first, lokale Trainings-App ohne Backend.
+Diese Version enthält das vollständige Liquid-Glass-UI und ist für GitHub Pages vorbereitet.
 
-## Enthalten
-- Trainingspläne erstellen, umbenennen und löschen
-- Übungen erstellen, bearbeiten und löschen
-- Übungen zu Plänen hinzufügen
-- Drag & Drop zum Sortieren
-- Aktives Training wird automatisch lokal gespeichert
-- Training fortsetzen oder verwerfen
-- Letzte Werte werden beim nächsten Training vorausgefüllt
-- Sätze abhaken, hinzufügen und entfernen
-- Trainingsdauer
-- vollständige Trainingshistorie mit Detailansicht
-- Fortschrittsauswertung und einfache Verlaufsgrafiken
-- JSON-Backup Export/Import mit Validierung
-- Service Worker / Offline-Cache
-- Migration der alten GymTrack-v1-Historie
+## GitHub Pages
+Kopiere **alle Dateien** aus diesem Ordner in dein Repository und pushe einen neuen Commit.
+Danach einige Sekunden warten und die Seite mit einem Hard Refresh öffnen.
 
-## Start
-Die App sollte über einen lokalen Webserver bzw. HTTPS geöffnet werden, damit Service Worker und IndexedDB zuverlässig funktionieren.
+Die Assets sind bewusst versioniert (`?v=20260908`) und der Service Worker nutzt eine neue Cache-Version, damit GitHub Pages nicht versehentlich eine alte CSS/JS-Version ausliefert.
+
+## Lokal
+Die App sollte über einen Webserver geöffnet werden, z. B.:
+`python3 -m http.server 8000`
+
+Dann:
+`http://localhost:8000/`
