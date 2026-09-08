@@ -13,12 +13,13 @@ async function load(){const d=await db();return new Promise((resolve,reject)=>{c
 async function save(){const d=await db();return new Promise((resolve,reject)=>{const t=d.transaction(STORE,"readwrite");t.objectStore(STORE).put(state,"state");t.oncomplete=resolve;t.onerror=()=>reject(t.error)})}
 function normalize(s){
   if(!s || typeof s!=="object") return null;
-  const n={version:2,plans:Array.isArray(s.plans)?s.plans:[],activePlanId:s.activePlanId||null,library:Array.isArray(s.library)?s.library:[],workouts:Array.isArray(s.workouts)?s.workouts:[],activeWorkout:s.activeWorkout||null};
+  const n={version:3,plans:Array.isArray(s.plans)?s.plans:[],activePlanId:s.activePlanId||null,library:Array.isArray(s.library)?s.library:[],workouts:Array.isArray(s.workouts)?s.workouts:[],activeWorkout:s.activeWorkout||null,bodyData:{heightCm:s.bodyData?.heightCm??"",entries:Array.isArray(s.bodyData?.entries)?s.bodyData.entries:[]}};
   // Migrate GymTrack v1 history into proper workout sessions.
   if(!n.workouts.length && Array.isArray(s.history) && s.history.length){
     const groups={}; s.history.forEach(h=>{const key=new Date(h.date||Date.now()).toISOString().slice(0,16);(groups[key]??=[]).push(h)});
     n.workouts=Object.values(groups).map(rows=>({id:uid(),planId:n.activePlanId,date:rows[0].date||new Date().toISOString(),startedAt:rows[0].date||new Date().toISOString(),finishedAt:rows[0].date||new Date().toISOString(),durationSec:0,items:rows.map(r=>({exerciseId:r.exerciseId,sets:r.sets||[]}))}));
   }
+  n.bodyData.entries=n.bodyData.entries.filter(e=>e&&e.date&&Number.isFinite(Number(e.weightKg))).map(e=>({id:e.id||uid(),date:String(e.date),weightKg:Number(e.weightKg),bodyFat:e.bodyFat===""||e.bodyFat==null?"":Number(e.bodyFat),chestCm:e.chestCm===""||e.chestCm==null?"":Number(e.chestCm),waistCm:e.waistCm===""||e.waistCm==null?"":Number(e.waistCm),armCm:e.armCm===""||e.armCm==null?"":Number(e.armCm),legCm:e.legCm===""||e.legCm==null?"":Number(e.legCm)}));
   n.library=n.library.map(e=>({...e,id:e.id||uid(),name:String(e.name||"Übung"),unit:e.unit||"weight",defaultSets:Math.max(1,Number(e.defaultSets)||3),targetReps:String(e.targetReps??"")}));
   n.plans=n.plans.map(p=>({...p,id:p.id||uid(),name:String(p.name||"Training"),exerciseIds:Array.isArray(p.exerciseIds)?p.exerciseIds.filter(id=>n.library.some(e=>e.id===id)):[]}));
   if(!n.plans.length) seed(n); if(!n.activePlanId || !n.plans.some(p=>p.id===n.activePlanId))n.activePlanId=n.plans[0]?.id||null;
@@ -29,7 +30,7 @@ const activePlan=()=>state.plans.find(p=>p.id===state.activePlanId)||state.plans
 const ex=id=>state.library.find(e=>e.id===id);
 const setTab=t=>{currentTab=t;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));render()};
 function render(){
-  if(currentTab==="body"){renderBody(); updateNav(); return;}
+  if(currentTab==="body"){renderBody(); return;}
 const titles={plan:"Mein Plan",workout:"Training",progress:"Fortschritt",settings:"Einstellungen"};$("pageTitle").textContent=titles[currentTab];$("quickAdd").style.display=currentTab==="settings"?"none":"block";$("content").innerHTML={plan:renderPlan,workout:renderWorkout,progress:renderProgress,settings:renderSettings}[currentTab]();if(currentTab==="plan")initExerciseReorder();}
 
 function renderPlan(){
@@ -114,7 +115,7 @@ function showPRFireworks(names){
  function f(t){ctx.clearRect(0,0,innerWidth,innerHeight);ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.055;p.vx*=.99;p.l-=.014;ctx.globalAlpha=p.l;ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,1.5,0,7);ctx.fill()});ctx.globalAlpha=1;if(t-start<3300)requestAnimationFrame(f);else o.remove()}requestAnimationFrame(f);
 }
 
-function finishWorkout(){
+async function finishWorkout(){
   const previousWorkouts=[...(state.workouts||[])];
   const prNames=(state.activeWorkout?.items||[]).filter(i=>isNewPR(i,previousWorkouts)).map(i=>(state.library||[]).find(e=>e.id===i.exerciseId)?.name||"Übung");
 const w=state.activeWorkout;if(!w)return;const validItems=w.items.map(i=>({...i,sets:i.sets.filter(s=>s.value!==""||s.reps!=="")})).filter(i=>i.sets.length);if(!validItems.length){toast("Noch keine Sätze eingetragen.");return}const finished=new Date().toISOString();state.workouts.push({id:w.id,planId:w.planId,date:finished,startedAt:w.startedAt,finishedAt:finished,durationSec:Math.max(0,(Date.parse(finished)-Date.parse(w.startedAt))/1000),items:validItems});state.activeWorkout=null;await save();toast("Training gespeichert");setTab("progress")
