@@ -50,3 +50,15 @@
 .chart-axis{display:flex;justify-content:space-between;margin-top:4px;color:var(--muted);font-size:11px}
 .time-weight-chart .chart-labels{margin-top:2px}
 @media(max-width:620px){.plan-row{align-items:flex-start;flex-direction:column}.plan-row-actions{width:100%;justify-content:stretch}.plan-row-actions button{flex:1}}
+
+/* Compact accordion layout */
+.plan-row-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;min-width:220px}
+.plan-row-actions button{width:100%;margin:0;min-height:42px}
+.accordion-section{margin-bottom:18px}
+.accordion-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;background:none;color:inherit;text-align:left;padding:0;border:0}
+.accordion-head h2{margin:4px 0 0}
+.accordion-head-right{display:flex;align-items:center;gap:10px;flex:none}
+.accordion-chevron{font-size:26px;line-height:1;opacity:.65;width:22px;text-align:center}
+.accordion-card{padding:16px}
+.progress-open-meta{font-size:12px;color:#aeb3c0;margin-top:10px}
+@media(max-width:620px){.plan-row-actions{width:100%;min-width:0;grid-template-columns:1fr 1fr}.plan-row{align-items:flex-start;flex-direction:column}}

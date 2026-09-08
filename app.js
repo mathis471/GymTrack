@@ -1,6 +1,6 @@
 const DB_NAME = "gymtrack", STORE = "state";
 let state = {version:3, plans:[], activePlanId:null, library:[], workouts:[], activeWorkout:null, bodyMeasurements:[]};
-let currentTab = "plan", draggedExerciseId = null, expandedPlanId = null;
+let currentTab = "plan", draggedExerciseId = null, expandedPlanId = null, progressHistoryOpen = false, expandedProgressIds = new Set(), expandedBodyKeys = new Set();
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now()+"-"+Math.random().toString(16).slice(2));
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -109,11 +109,14 @@ function recentWorkoutCard(){const w=state.workouts.at(-1);if(!w)return"";const 
 
 function renderProgress(){
  const totalSets=state.workouts.reduce((a,w)=>a+w.items.reduce((b,i)=>b+i.sets.length,0),0);
+ const tracked=state.library.filter(e=>state.workouts.some(w=>w.items.some(i=>i.exerciseId===e.id)));
  return `<div class="stat"><div class="stat-box"><strong>${state.workouts.length}</strong><span>Trainings</span></div><div class="stat-box"><strong>${totalSets}</strong><span>Sätze</span></div><div class="stat-box"><strong>${bestCount()}</strong><span>Übungen verfolgt</span></div></div>
- <div class="section-head"><h2>Historie</h2></div>${state.workouts.length?state.workouts.slice().reverse().map(w=>historyCard(w)).join(""):`<div class="empty">Nach deinem ersten Training erscheint hier deine Historie.</div>`}
- <div class="section-head"><h2>Übungsfortschritt</h2></div>${state.library.filter(e=>state.workouts.some(w=>w.items.some(i=>i.exerciseId===e.id))).map(e=>progressCard(e)).join("")||`<div class="muted small">Noch keine Übungen mit gespeicherten Werten.</div>`}`
+ <div class="accordion-section"><button class="accordion-head" onclick="toggleProgressHistory()"><div><div class="eyebrow">HISTORIE</div><h2>Abgeschlossene Trainings</h2></div><span class="accordion-chevron">${progressHistoryOpen?"⌄":"›"}</span></button>
+ ${progressHistoryOpen?(state.workouts.length?state.workouts.slice().reverse().map(w=>historyCard(w)).join(""):`<div class="empty">Nach deinem ersten Training erscheint hier deine Historie.</div>`):""}</div>
+ <div class="section-head"><h2>Übungsfortschritt</h2></div>
+ ${tracked.map(e=>progressCard(e)).join("")||`<div class="muted small">Noch keine Übungen mit gespeicherten Werten.</div>`}`
 }
-function historyCard(w){const p=state.plans.find(p=>p.id===w.planId);const sets=w.items.reduce((a,i)=>a+i.sets.length,0);return `<button class="card history-card" onclick="showWorkout('${w.id}')"><div><b>${esc(p?.name||"Training")}</b><div class="exercise-meta">${fmtDate(w.date)}</div></div><div class="history-right"><b>${sets} Sätze</b><span>${fmtDuration(w.durationSec)}</span></div></button>`}
+function toggleProgressHistory(){progressHistoryOpen=!progressHistoryOpen;render()}
 function progressValues(id){
  const vals=[];
  state.workouts.forEach(w=>{const item=w.items?.find(i=>i.exerciseId===id);if(!item)return;const numbers=item.sets.map(set=>parseFloat(String(set.value??"").replace(",","."))).filter(v=>Number.isFinite(v)&&v>0);if(numbers.length)vals.push({v:Math.max(...numbers),date:w.date});});
@@ -121,9 +124,10 @@ function progressValues(id){
 }
 function bestCount(){return state.library.reduce((n,e)=>n+(progressValues(e.id).length?1:0),0)}
 function progressCard(e){
- const vals=progressValues(e.id), last=vals.at(-1)?.v, best=vals.length?Math.max(...vals.map(x=>x.v)):null;
- return `<div class="card progress-item" onclick="openExerciseProgress('${e.id}')"><div class="phead"><div><b>${esc(e.name)}</b><div class="exercise-meta">${vals.length} Messwerte · Bestwert ${best??"—"} ${vals.length?unitLabel(e.unit):""}</div></div><b>${last??"—"} ${last!=null?unitLabel(e.unit):""}</b></div>${e.unit==="weight"&&vals.length?chartTimeWeight(vals):""}</div>`
+ const vals=progressValues(e.id), last=vals.at(-1)?.v, best=vals.length?Math.max(...vals.map(x=>x.v)):null, open=expandedProgressIds.has(e.id);
+ return `<div class="card progress-item accordion-card"><button class="accordion-head" onclick="toggleProgressExercise('${e.id}')"><div><b>${esc(e.name)}</b><div class="exercise-meta">${vals.length} Messwerte · Bestwert ${best??"—"} ${vals.length?unitLabel(e.unit):""}</div></div><div class="accordion-head-right"><b>${last??"—"} ${last!=null?unitLabel(e.unit):""}</b><span class="accordion-chevron">${open?"⌄":"›"}</span></div></button>${open?`${e.unit==="weight"&&vals.length?chartTimeWeight(vals):""}<div class="progress-open-meta">${vals.length?`Letzter Wert: <b>${last} ${unitLabel(e.unit)}</b>`:"Noch kein Fortschritt aufgezeichnet."}</div>`:""}</div>`
 }
+function toggleProgressExercise(id){if(expandedProgressIds.has(id))expandedProgressIds.delete(id);else expandedProgressIds.add(id);render()}
 function chartTimeWeight(vals){
  if(!vals.length)return"";
  const width=420,height=150,padX=10,padY=18;
@@ -154,7 +158,13 @@ function renderBody(){
  ${state.bodyMeasurements.length?`<button class="secondary full" onclick="manageBodyMeasurements()">Einträge verwalten</button>`:""}`
 }
 function latestBody(){return state.bodyMeasurements.slice().sort((a,b)=>Date.parse(a.date)-Date.parse(b.date)).at(-1)}
-function bodyMetricCard(key,label,unit){const vals=state.bodyMeasurements.filter(x=>x[key]!==undefined&&x[key]!==null&&x[key]!=="").sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));if(!vals.length)return `<div class="card progress-item"><div class="phead"><b>${label}</b><span class="muted">Noch keine Werte</span></div></div>`;const last=vals.at(-1)[key],first=vals[0][key],delta=Number(last)-Number(first);return `<div class="card progress-item"><div class="phead"><div><b>${label}</b><div class="exercise-meta">${vals.length} Einträge · ${unit}</div></div><b>${esc(last)} ${unit}</b></div><div class="body-change">${vals.length>1?`${delta>0?"+":""}${new Intl.NumberFormat("de-DE",{maximumFractionDigits:1}).format(delta)} ${unit} seit dem ersten Eintrag`:"Erster Eintrag"}</div>${chart(vals.map(x=>Number(x[key])).filter(Number.isFinite))}</div>`}
+function bodyMetricCard(key,label,unit){
+ const vals=state.bodyMeasurements.filter(x=>x[key]!==undefined&&x[key]!==null&&x[key]!=="").sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
+ if(!vals.length)return `<div class="card progress-item accordion-card"><div class="accordion-head"><div><b>${label}</b></div><span class="muted">Noch keine Werte</span></div></div>`;
+ const last=vals.at(-1)[key],first=vals[0][key],delta=Number(last)-Number(first),open=expandedBodyKeys.has(key);
+ return `<div class="card progress-item accordion-card"><button class="accordion-head" onclick="toggleBodyMetric('${key}')"><div><b>${label}</b><div class="exercise-meta">${vals.length} Einträge · ${unit}</div></div><div class="accordion-head-right"><b>${esc(last)} ${unit}</b><span class="accordion-chevron">${open?"⌄":"›"}</span></div></button>${open?`<div class="body-change">${vals.length>1?`${delta>0?"+":""}${new Intl.NumberFormat("de-DE",{maximumFractionDigits:1}).format(delta)} ${unit} seit dem ersten Eintrag`:"Erster Eintrag"}</div>${chart(vals.map(x=>Number(x[key])).filter(Number.isFinite))}`:""}</div>`
+}
+function toggleBodyMetric(key){if(expandedBodyKeys.has(key))expandedBodyKeys.delete(key);else expandedBodyKeys.add(key);render()}
 function bodyForm(m={}){return `<div class="form-grid"><div><label class="label">Datum</label><input id="bodyDate" class="field" type="date" value="${esc(m.date?m.date.slice(0,10):new Date().toISOString().slice(0,10))}"></div><div class="two"><div><label class="label">Gewicht (kg)</label><input id="bodyWeight" class="field" inputmode="decimal" value="${esc(m.weight??"")}"></div><div><label class="label">Brust (cm)</label><input id="bodyChest" class="field" inputmode="decimal" value="${esc(m.chest??"")}"></div></div><div class="two"><div><label class="label">Taille (cm)</label><input id="bodyWaist" class="field" inputmode="decimal" value="${esc(m.waist??"")}"></div><div><label class="label">Arm (cm)</label><input id="bodyArm" class="field" inputmode="decimal" value="${esc(m.arm??"")}"></div></div><div><label class="label">Oberschenkel (cm)</label><input id="bodyThigh" class="field" inputmode="decimal" value="${esc(m.thigh??"")}"></div><button class="primary" onclick="saveBodyMeasurement()">Speichern</button></div>`}
 function addBodyMeasurement(){openModal("Körperwerte",bodyForm())}
 async function saveBodyMeasurement(){const val=id=>$(id).value.trim();const clean=v=>v===""?null:Number(String(v).replace(",","."));const data={id:uid(),date:new Date(`${val("bodyDate")}T12:00:00`).toISOString(),weight:clean(val("bodyWeight")),chest:clean(val("bodyChest")),waist:clean(val("bodyWaist")),arm:clean(val("bodyArm")),thigh:clean(val("bodyThigh"))};if(!data.date||[data.weight,data.chest,data.waist,data.arm,data.thigh].every(v=>v===null||!Number.isFinite(v)||v<=0)){toast("Bitte mindestens einen gültigen Wert eingeben.");return}state.bodyMeasurements.push(data);await save();closeModal();render();toast("Körperwerte gespeichert")}
