@@ -1,9 +1,9 @@
-# GymTrack v2 – Liquid Glass – Fix 3
+# GymTrack v2 – Liquid Glass – Fix 7
 
-## Behoben
-- Übungen können direkt aus dem aktiven Trainingsplan entfernt werden.
-- Übungen lassen sich auf Touch-Geräten per Gedrückthalten am Griff (☷) und Ziehen neu sortieren.
-- Maus/Trackpad-Reordering bleibt unterstützt.
-- Neuer Asset-/Service-Worker-Cache zur Vermeidung alter GitHub-Pages-Versionen.
+- Übungen im aktiven Training lassen sich einzeln zuklappen.
+- Eine Übung klappt automatisch zu, sobald alle Gewicht/Zeit/Körpergewicht-Werte und Wiederholungen ihrer Sätze eingetragen sind.
+- Übungen können jederzeit manuell ohne Eingaben geöffnet/zugeklappt werden.
+- Die aufgeklappt/zugeklappt-Zustände werden im laufenden Training gespeichert.
+- Ein neuer Satz öffnet die betreffende Übung wieder.
 
-Auf iPad: den Griff einer Übung ca. 0,3 Sekunden gedrückt halten und anschließend ziehen.
+Für GitHub Pages alle Projektdateien aus dieser ZIP ersetzen.

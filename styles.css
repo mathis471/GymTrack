@@ -29,3 +29,15 @@
 .chevron{font-size:28px;line-height:1;opacity:.65;width:22px;text-align:center}
 .plan-exercises{margin-top:0;margin-bottom:14px}
 .plan-exercises .full{width:100%;margin-top:12px}
+
+/* Workout exercise collapse */
+.we-head{align-items:center!important}
+.exercise-collapse{width:40px;height:40px;flex:0 0 40px;border-radius:13px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.065);color:#fff;display:grid;place-items:center;cursor:pointer;touch-action:manipulation}
+.exercise-collapse:active{transform:scale(.94);background:rgba(255,255,255,.12)}
+.collapse-chevron{font-size:25px;line-height:1;transform:translateY(-1px);opacity:.85}
+.we-title{flex:1;min-width:0}
+.complete-label{color:#9de7bf;font-weight:700}
+.workout-exercise.is-collapsed{padding-bottom:14px}
+.collapsed-summary{display:flex;flex-wrap:wrap;gap:7px;margin:7px 0 0 50px}
+.collapsed-summary span{font-size:11px;color:#b8bdc8;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.07);padding:7px 9px;border-radius:10px}
+@media(max-width:520px){.we-head{flex-direction:row!important;gap:8px!important}.collapsed-summary{margin-left:48px}.last{max-width:110px}}
