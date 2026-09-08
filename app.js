@@ -30,7 +30,7 @@ const activePlan=()=>state.plans.find(p=>p.id===state.activePlanId)||state.plans
 const ex=id=>state.library.find(e=>e.id===id);
 const setTab=t=>{currentTab=t;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));render()};
 function render(){
-  if(currentTab==="body"){renderBody(); return;}
+  if(currentTab==="body"){document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===currentTab));$("pageTitle").textContent="Körper";$("quickAdd").style.display="block";renderBody();return;}
 const titles={plan:"Mein Plan",workout:"Training",progress:"Fortschritt",settings:"Einstellungen"};$("pageTitle").textContent=titles[currentTab];$("quickAdd").style.display=currentTab==="settings"?"none":"block";$("content").innerHTML={plan:renderPlan,workout:renderWorkout,progress:renderProgress,settings:renderSettings}[currentTab]();if(currentTab==="plan")initExerciseReorder();}
 
 function renderPlan(){
