@@ -28,7 +28,9 @@ function seed(s){const exercises=[["Bankdrücken","weight",3,"8"],["Schrägbankd
 const activePlan=()=>state.plans.find(p=>p.id===state.activePlanId)||state.plans[0];
 const ex=id=>state.library.find(e=>e.id===id);
 const setTab=t=>{currentTab=t;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));render()};
-function render(){const titles={plan:"Mein Plan",workout:"Training",progress:"Fortschritt",settings:"Einstellungen"};$("pageTitle").textContent=titles[currentTab];$("quickAdd").style.display=currentTab==="settings"?"none":"block";$("content").innerHTML={plan:renderPlan,workout:renderWorkout,progress:renderProgress,settings:renderSettings}[currentTab]();if(currentTab==="plan")initExerciseReorder();}
+function render(){
+  if(currentTab==="body"){renderBody(); updateNav(); return;}
+const titles={plan:"Mein Plan",workout:"Training",progress:"Fortschritt",settings:"Einstellungen"};$("pageTitle").textContent=titles[currentTab];$("quickAdd").style.display=currentTab==="settings"?"none":"block";$("content").innerHTML={plan:renderPlan,workout:renderWorkout,progress:renderProgress,settings:renderSettings}[currentTab]();if(currentTab==="plan")initExerciseReorder();}
 
 function renderPlan(){
  const current=activePlan();
@@ -96,7 +98,28 @@ function toggleExercise(i){if(!state.activeWorkout)return;const item=state.activ
 function toggleSet(i,j){state.activeWorkout.items[i].sets[j].done=!state.activeWorkout.items[i].sets[j].done;save();render()}
 function addSet(i){const item=state.activeWorkout.items[i];item.sets.push({value:"",reps:"",done:false});state.activeWorkout.collapsedExerciseIds=(state.activeWorkout.collapsedExerciseIds||[]).filter(id=>id!==item.exerciseId);save();render()}
 function removeSet(i){if(state.activeWorkout.items[i].sets.length<=1)return;state.activeWorkout.items[i].sets.pop();save();render()}
-async function finishWorkout(){const w=state.activeWorkout;if(!w)return;const validItems=w.items.map(i=>({...i,sets:i.sets.filter(s=>s.value!==""||s.reps!=="")})).filter(i=>i.sets.length);if(!validItems.length){toast("Noch keine Sätze eingetragen.");return}const finished=new Date().toISOString();state.workouts.push({id:w.id,planId:w.planId,date:finished,startedAt:w.startedAt,finishedAt:finished,durationSec:Math.max(0,(Date.parse(finished)-Date.parse(w.startedAt))/1000),items:validItems});state.activeWorkout=null;await save();toast("Training gespeichert");setTab("progress")}
+async 
+function setNum(v){const n=parseFloat(String(v??"").replace(",","."));return Number.isFinite(n)&&n>0?n:null;}
+function isNewPR(item,prev){
+ const cur=(item.sets||[]).map(s=>({v:setNum(s.value),r:setNum(s.reps)})).filter(x=>x.v!=null);
+ if(!cur.length)return false;
+ const old=[];prev.forEach(w=>(w.items||[]).filter(i=>i.exerciseId===item.exerciseId).forEach(i=>(i.sets||[]).forEach(s=>{const v=setNum(s.value),r=setNum(s.reps);if(v!=null)old.push({v,r});})));
+ return Math.max(...cur.map(x=>x.v))>Math.max(0,...old.map(x=>x.v)) || Math.max(0,...cur.map(x=>x.r||0))>Math.max(0,...old.map(x=>x.r||0));
+}
+function showPRFireworks(names){
+ const o=document.createElement("div");o.className="pr-celebration";o.innerHTML='<div class="pr-message">🏆<strong>Neuer PR!</strong><small>'+names.join(" · ")+'</small></div><canvas></canvas>';document.body.appendChild(o);
+ const cv=o.querySelector("canvas"),ctx=cv.getContext("2d");let ps=[],start=performance.now();
+ const resize=()=>{cv.width=innerWidth*devicePixelRatio;cv.height=innerHeight*devicePixelRatio;cv.style.width=innerWidth+"px";cv.style.height=innerHeight+"px";ctx.setTransform(devicePixelRatio,0,0,devicePixelRatio,0,0)};resize();
+ for(let b=0;b<5;b++)setTimeout(()=>{const x=innerWidth*(.15+Math.random()*.7),y=innerHeight*(.18+Math.random()*.35);for(let i=0;i<42;i++){const q=Math.random()*Math.PI*2,sp=2+Math.random()*4.5;ps.push({x,y,vx:Math.cos(q)*sp,vy:Math.sin(q)*sp,l:1,c:["#fff","#7dd3fc","#a78bfa","#f9a8d4","#fde68a"][Math.floor(Math.random()*5)]})}},b*150);
+ function f(t){ctx.clearRect(0,0,innerWidth,innerHeight);ps.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.055;p.vx*=.99;p.l-=.014;ctx.globalAlpha=p.l;ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(p.x,p.y,1.5,0,7);ctx.fill()});ctx.globalAlpha=1;if(t-start<3300)requestAnimationFrame(f);else o.remove()}requestAnimationFrame(f);
+}
+
+function finishWorkout(){
+  const previousWorkouts=[...(state.workouts||[])];
+  const prNames=(state.activeWorkout?.items||[]).filter(i=>isNewPR(i,previousWorkouts)).map(i=>(state.library||[]).find(e=>e.id===i.exerciseId)?.name||"Übung");
+const w=state.activeWorkout;if(!w)return;const validItems=w.items.map(i=>({...i,sets:i.sets.filter(s=>s.value!==""||s.reps!=="")})).filter(i=>i.sets.length);if(!validItems.length){toast("Noch keine Sätze eingetragen.");return}const finished=new Date().toISOString();state.workouts.push({id:w.id,planId:w.planId,date:finished,startedAt:w.startedAt,finishedAt:finished,durationSec:Math.max(0,(Date.parse(finished)-Date.parse(w.startedAt))/1000),items:validItems});state.activeWorkout=null;await save();toast("Training gespeichert");setTab("progress")
+  if(prNames.length)setTimeout(()=>showPRFireworks(prNames),120);
+}
 async function cancelWorkout(){if(!state.activeWorkout)return;if(!confirm("Aktives Training wirklich verwerfen? Deine Eingaben gehen verloren."))return;state.activeWorkout=null;await save();render()}
 function recentWorkoutCard(){const w=state.workouts.at(-1);if(!w)return"";const p=state.plans.find(p=>p.id===w.planId);return `<div class="section-head"><h2>Letztes Training</h2></div><button class="card history-mini" onclick="showWorkout('${w.id}')"><b>${esc(p?.name||"Training")}</b><span>${fmtDate(w.date)} · ${fmtDuration(w.durationSec)}</span></button>`}
 
@@ -158,7 +181,8 @@ function quickAdd(){
       ${activePlan()?`<button class="choice" onclick="addToPlan(\'${activePlan().id}\')"><b>＋ Übung zum Plan hinzufügen</b><small>Eine vorhandene Übung in „${esc(activePlan().name)}“ aufnehmen</small></button>`:""}
       <button class="choice" onclick="newExercise()"><b>＋ Neue Übung erstellen</b><small>Eine Übung für deine Bibliothek anlegen</small></button>
     </div>`);
-  } else if(currentTab==="settings") newExercise();
+  } else if(currentTab==="body") openBodyEntry();
+  else if(currentTab==="settings") newExercise();
   else newExercise();
 }
 function exportData(){const payload={...state,exportedAt:new Date().toISOString(),app:"GymTrack",schemaVersion:2};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`gymtrack-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast("Backup exportiert")}
