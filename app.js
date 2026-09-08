@@ -1,5 +1,5 @@
 const DB_NAME = "gymtrack", STORE = "state";
-let state = {version:3, plans:[], activePlanId:null, library:[], workouts:[], activeWorkout:null, bodyData:{heightCm:"",entries:[]}};
+let state = {version:2, plans:[], activePlanId:null, library:[], workouts:[], activeWorkout:null};
 let currentTab = "plan", draggedExerciseId = null, expandedPlanId = null;
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now()+"-"+Math.random().toString(16).slice(2));
 const $ = id => document.getElementById(id);
@@ -13,7 +13,7 @@ async function load(){const d=await db();return new Promise((resolve,reject)=>{c
 async function save(){const d=await db();return new Promise((resolve,reject)=>{const t=d.transaction(STORE,"readwrite");t.objectStore(STORE).put(state,"state");t.oncomplete=resolve;t.onerror=()=>reject(t.error)})}
 function normalize(s){
   if(!s || typeof s!=="object") return null;
-  const n={version:3,plans:Array.isArray(s.plans)?s.plans:[],activePlanId:s.activePlanId||null,library:Array.isArray(s.library)?s.library:[],workouts:Array.isArray(s.workouts)?s.workouts:[],activeWorkout:s.activeWorkout||null,bodyData:{heightCm:s.bodyData?.heightCm??"",entries:Array.isArray(s.bodyData?.entries)?s.bodyData.entries:[]}};
+  const n={version:2,plans:Array.isArray(s.plans)?s.plans:[],activePlanId:s.activePlanId||null,library:Array.isArray(s.library)?s.library:[],workouts:Array.isArray(s.workouts)?s.workouts:[],activeWorkout:s.activeWorkout||null};
   // Migrate GymTrack v1 history into proper workout sessions.
   if(!n.workouts.length && Array.isArray(s.history) && s.history.length){
     const groups={}; s.history.forEach(h=>{const key=new Date(h.date||Date.now()).toISOString().slice(0,16);(groups[key]??=[]).push(h)});
@@ -28,57 +28,7 @@ function seed(s){const exercises=[["Bankdrücken","weight",3,"8"],["Schrägbankd
 const activePlan=()=>state.plans.find(p=>p.id===state.activePlanId)||state.plans[0];
 const ex=id=>state.library.find(e=>e.id===id);
 const setTab=t=>{currentTab=t;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));render()};
-
-function bodyEntries(){return [...(state.bodyData?.entries||[])].sort((a,b)=>String(b.date).localeCompare(String(a.date)));}
-function bodyLatest(){return bodyEntries()[0]||null;}
-function bodyBmi(e=bodyLatest()){const h=Number(state.bodyData?.heightCm)/100,w=Number(e?.weightKg);return e&&h>0&&w>0?w/(h*h):null;}
-function bodyBmiLabel(v){if(v==null)return "—";if(v<18.5)return "Untergewicht";if(v<25)return "Normalbereich";if(v<30)return "Übergewicht";return "Adipositas";}
-function bodyFmt(v,d=1){return v===""||v==null||!Number.isFinite(Number(v))?"—":Number(v).toFixed(d).replace(".",",");}
-function bodyNum(id){const v=$(id)?.value;if(v===""||v==null)return "";const n=parseFloat(String(v).replace(",","."));return Number.isFinite(n)?n:"";}
-function renderBody(){
- const root=$("content"); if(!root)return "";
- const es=bodyEntries(),e=es[0],bmi=bodyBmi(e),chart=es.slice(0,12).reverse();
- let chartHtml='<div class="body-empty-chart">Mindestens 2 Messungen für den Verlauf.</div>';
- if(chart.length>1){
-  const vals=chart.map(x=>Number(x.weightKg)),min=Math.min(...vals),span=Math.max(.1,Math.max(...vals)-min);
-  const pts=chart.map((x,i)=>`${8+i*84/(chart.length-1)},${78-((Number(x.weightKg)-min)/span)*58}`).join(" ");
-  chartHtml=`<div class="body-chart-wrap"><svg class="body-chart" viewBox="0 0 100 86" preserveAspectRatio="none"><polyline class="body-chart-line" points="${pts}" fill="none" vector-effect="non-scaling-stroke"></polyline>${chart.map((x,i)=>`<circle class="body-chart-dot" cx="${8+i*84/(chart.length-1)}" cy="${78-((Number(x.weightKg)-min)/span)*58}" r="1.8"></circle>`).join("")}</svg></div>`;
- }
- const trend=es.length>1?`${(Number(e.weightKg)-Number(es[1].weightKg)>0?"+":"")}${(Number(e.weightKg)-Number(es[1].weightKg)).toFixed(1).replace(".",",")} kg seit letzter Messung`:"Noch kein Vergleich";
- return `<div class="section-head"><div><div class="eyebrow">KÖRPERDATEN</div><h2>Körper</h2><p class="muted">Gewicht und Körperentwicklung im Blick behalten.</p></div><button class="primary" onclick="openBodyEntry()">＋ Messung</button></div>
- <div class="card body-main-card"><div class="card-title-row"><div><div class="eyebrow">AKTUELL</div><h2>${e?bodyFmt(e.weightKg)+" kg":"Noch keine Daten"}</h2></div><span class="muted">${trend}</span></div>
- <div class="body-metrics"><div><span>Größe</span><b>${state.bodyData?.heightCm?bodyFmt(state.bodyData.heightCm,0)+" cm":"—"}</b></div><div><span>BMI</span><b>${bmi==null?"—":bmi.toFixed(1).replace(".",",")}</b><small>${bodyBmiLabel(bmi)}</small></div><div><span>Körperfett</span><b>${bodyFmt(e?.bodyFat)}${e?.bodyFat!==""&&e?.bodyFat!=null?" %":""}</b></div></div></div>
- <div class="card"><div class="section-head"><h3>Gewichtsverlauf</h3><span class="muted">${es.length} Messungen</span></div>${chartHtml}</div>
- <div class="card"><div class="section-head"><h3>Körpermaße</h3><button class="secondary" onclick="openBodyEntry()">Bearbeiten</button></div><div class="body-metrics measures"><div><span>Brust</span><b>${bodyFmt(e?.chestCm)}${e?.chestCm!==""&&e?.chestCm!=null?" cm":""}</b></div><div><span>Taille</span><b>${bodyFmt(e?.waistCm)}${e?.waistCm!==""&&e?.waistCm!=null?" cm":""}</b></div><div><span>Arm</span><b>${bodyFmt(e?.armCm)}${e?.armCm!==""&&e?.armCm!=null?" cm":""}</b></div><div><span>Bein</span><b>${bodyFmt(e?.legCm)}${e?.legCm!==""&&e?.legCm!=null?" cm":""}</b></div></div></div>
- <div class="card"><div class="section-head"><h3>Messungen</h3></div>${es.length?es.slice(0,10).map(x=>{const bv=bodyBmi(x);return `<div class="body-history-row"><div><b>${x.date}</b><small>${x.bodyFat!==""&&x.bodyFat!=null?bodyFmt(x.bodyFat)+" % KF":""}</small></div><div><b>${bodyFmt(x.weightKg)} kg</b><small>BMI ${bv==null?"—":bv.toFixed(1).replace(".",",")}</small></div><button class="secondary" onclick="editBodyEntry('${x.id}')">Bearbeiten</button></div>`}).join(""):'<div class="empty">Noch keine Körperdaten.</div>'}</div>`;
-}
-function openBodyEntry(id=null){
- const e=id?(state.bodyData.entries||[]).find(x=>x.id===id):null;
- openModal(id?"Körperdaten bearbeiten":"Körperdaten",`<div class="form-grid">
- <div><label class="label">Datum</label><input id="bodyDate" class="field" type="date" value="${e?.date||new Date().toISOString().slice(0,10)}"></div>
- <div><label class="label">Gewicht (kg)</label><input id="bodyWeight" class="field" type="number" step="0.1" inputmode="decimal" value="${e?.weightKg??""}"></div>
- <div><label class="label">Größe (cm)</label><input id="bodyHeight" class="field" type="number" step="1" inputmode="numeric" value="${state.bodyData?.heightCm??""}"></div>
- <div><label class="label">Körperfett (%)</label><input id="bodyFat" class="field" type="number" step="0.1" inputmode="decimal" value="${e?.bodyFat??""}"></div>
- <div><label class="label">Brust (cm)</label><input id="bodyChest" class="field" type="number" step="0.1" value="${e?.chestCm??""}"></div>
- <div><label class="label">Taille (cm)</label><input id="bodyWaist" class="field" type="number" step="0.1" value="${e?.waistCm??""}"></div>
- <div><label class="label">Arm (cm)</label><input id="bodyArm" class="field" type="number" step="0.1" value="${e?.armCm??""}"></div>
- <div><label class="label">Bein (cm)</label><input id="bodyLeg" class="field" type="number" step="0.1" value="${e?.legCm??""}"></div>
- <div class="button-row">${id?`<button class="danger" onclick="deleteBodyEntry('${id}')">Löschen</button>`:""}<button class="primary" onclick="saveBodyEntry(${id?`'${id}'`:"null"})">Speichern</button></div></div>`);
-}
-async function saveBodyEntry(id=null){
- const weight=bodyNum("bodyWeight"),height=bodyNum("bodyHeight");
- if(!(weight>0)){toast("Bitte ein gültiges Gewicht eingeben.");return;}
- if(height>0)state.bodyData.heightCm=height;
- let e=id?(state.bodyData.entries||[]).find(x=>x.id===id):{id:uid()};
- if(!e)return;
- Object.assign(e,{date:$("bodyDate").value,weightKg:weight,bodyFat:bodyNum("bodyFat"),chestCm:bodyNum("bodyChest"),waistCm:bodyNum("bodyWaist"),armCm:bodyNum("bodyArm"),legCm:bodyNum("bodyLeg")});
- if(!id)state.bodyData.entries.push(e);
- await save();closeModal();render();toast("Körperdaten gespeichert");
-}
-function editBodyEntry(id){openBodyEntry(id);}
-async function deleteBodyEntry(id){state.bodyData.entries=(state.bodyData.entries||[]).filter(x=>x.id!==id);await save();closeModal();render();toast("Messung gelöscht");}
-
-function render(){const titles={plan:"Mein Plan",workout:"Training",progress:"Fortschritt",body:"Körper",settings:"Einstellungen"};$("pageTitle").textContent=titles[currentTab];$("quickAdd").style.display=currentTab==="settings"?"none":"block";$("content").innerHTML={plan:renderPlan,workout:renderWorkout,progress:renderProgress,body:renderBody,settings:renderSettings}[currentTab]();if(currentTab==="plan")initExerciseReorder();}
+function render(){const titles={plan:"Mein Plan",workout:"Training",progress:"Fortschritt",settings:"Einstellungen"};$("pageTitle").textContent=titles[currentTab];$("quickAdd").style.display=currentTab==="settings"?"none":"block";$("content").innerHTML={plan:renderPlan,workout:renderWorkout,progress:renderProgress,settings:renderSettings}[currentTab]();if(currentTab==="plan")initExerciseReorder();}
 
 function renderPlan(){
  const current=activePlan();
@@ -126,7 +76,7 @@ async function moveExercise(planId,id,direction){
 let pointerDrag={id:null,targetId:null,active:false,timer:null,row:null};
 function initExerciseReorder(){document.querySelectorAll('.drag-handle').forEach(handle=>{handle.addEventListener('pointerdown',startPointerDrag);});document.addEventListener('pointermove',movePointerDrag,{passive:false});document.addEventListener('pointerup',endPointerDrag);document.addEventListener('pointercancel',cancelPointerDrag);}
 function startPointerDrag(ev){if(ev.pointerType==='mouse'&&ev.button!==0)return;if(ev.target.closest('.row-actions'))return;const handle=ev.currentTarget,row=handle.closest('.exercise-row'),id=row.dataset.exerciseId;pointerDrag={id,targetId:id,active:false,timer:setTimeout(()=>{pointerDrag.active=true;row.classList.add('dragging');try{row.setPointerCapture(ev.pointerId)}catch(e){};navigator.vibrate?.(18)},320),row};}
-function movePointerDrag(ev){if(!pointerDrag.row||!pointerDrag.active)return;ev.preventDefault();const el=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.exercise-row');document.querySelectorAll('.exercise-row').forEach(r=>r.classList.remove('drag-target'));if(el&&el!==pointerDrag.row){pointerDrag.targetId=el.dataset.exerciseId;el.classList.add('drag-target');}}
+function movePointerDrag(ev){if(!pointerDrag.row||pointerDrag.row!==ev.currentTarget||!pointerDrag.active)return;ev.preventDefault();const el=document.elementFromPoint(ev.clientX,ev.clientY)?.closest('.exercise-row');document.querySelectorAll('.exercise-row').forEach(r=>r.classList.remove('drag-target'));if(el&&el!==pointerDrag.row){pointerDrag.targetId=el.dataset.exerciseId;el.classList.add('drag-target');}}
 async function endPointerDrag(){if(pointerDrag.timer)clearTimeout(pointerDrag.timer);const d={...pointerDrag};pointerDrag={id:null,targetId:null,active:false,timer:null,row:null};if(!d.row)return;d.row.classList.remove('dragging');document.querySelectorAll('.exercise-row').forEach(r=>r.classList.remove('drag-target'));if(!d.active||!d.targetId||d.id===d.targetId)return;const p=activePlan();if(!p)return;const from=p.exerciseIds.indexOf(d.id),to=p.exerciseIds.indexOf(d.targetId);if(from<0||to<0)return;const [moved]=p.exerciseIds.splice(from,1);p.exerciseIds.splice(to,0,moved);await save();render();}
 function cancelPointerDrag(){if(pointerDrag.timer)clearTimeout(pointerDrag.timer);pointerDrag.row?.classList.remove('dragging');document.querySelectorAll('.exercise-row').forEach(r=>r.classList.remove('drag-target'));pointerDrag={id:null,targetId:null,active:false,timer:null,row:null};}
 function dragStart(ev,id){draggedExerciseId=id;ev.dataTransfer.effectAllowed="move"}
@@ -146,31 +96,7 @@ function toggleExercise(i){if(!state.activeWorkout)return;const item=state.activ
 function toggleSet(i,j){state.activeWorkout.items[i].sets[j].done=!state.activeWorkout.items[i].sets[j].done;save();render()}
 function addSet(i){const item=state.activeWorkout.items[i];item.sets.push({value:"",reps:"",done:false});state.activeWorkout.collapsedExerciseIds=(state.activeWorkout.collapsedExerciseIds||[]).filter(id=>id!==item.exerciseId);save();render()}
 function removeSet(i){if(state.activeWorkout.items[i].sets.length<=1)return;state.activeWorkout.items[i].sets.pop();save();render()}
-async 
-function numericValue(v){const n=parseFloat(String(v??"").replace(",","."));return Number.isFinite(n)&&n>0?n:null;}
-function findPRNames(workout){
- const names=[];
- (workout?.items||[]).forEach(item=>{
-  const current=(item.sets||[]).map(s=>({v:numericValue(s.value),r:numericValue(s.reps)}));
-  const old=[];
-  (state.workouts||[]).forEach(w=>(w.items||[]).filter(i=>i.exerciseId===item.exerciseId).forEach(i=>(i.sets||[]).forEach(s=>old.push({v:numericValue(s.value),r:numericValue(s.reps)}))));
-  const cv=current.filter(x=>x.v!=null),ov=old.filter(x=>x.v!=null);
-  const cr=current.filter(x=>x.r!=null),or=old.filter(x=>x.r!=null);
-  if((cv.length&&Math.max(...cv.map(x=>x.v))>Math.max(0,...ov.map(x=>x.v)))||(cr.length&&Math.max(...cr.map(x=>x.r))>Math.max(0,...or.map(x=>x.r)))){
-   names.push(ex(item.exerciseId)?.name||"Übung");
-  }
- });
- return names;
-}
-function showPRFireworks(names){
- const o=document.createElement("div");o.className="pr-celebration";o.innerHTML='<div class="pr-message"><span>🏆</span><strong>Neuer PR!</strong><small>'+names.join(" · ")+'</small></div><canvas></canvas>';document.body.appendChild(o);
- const cv=o.querySelector("canvas"),ctx=cv.getContext("2d");let p=[],start=performance.now();cv.width=innerWidth*devicePixelRatio;cv.height=innerHeight*devicePixelRatio;ctx.scale(devicePixelRatio,devicePixelRatio);
- function burst(){const x=innerWidth*(.15+Math.random()*.7),y=innerHeight*(.15+Math.random()*.4);for(let i=0;i<48;i++){const q=Math.random()*Math.PI*2,s=2+Math.random()*4.5;p.push({x,y,vx:Math.cos(q)*s,vy:Math.sin(q)*s,l:1,c:["#fff","#7dd3fc","#a78bfa","#f9a8d4","#fde68a"][Math.floor(Math.random()*5)]})}}
- [0,450,900,1350,1800].forEach(t=>setTimeout(burst,t));
- function frame(now){ctx.clearRect(0,0,innerWidth,innerHeight);p.forEach(x=>{x.x+=x.vx;x.y+=x.vy;x.vy+=.055;x.vx*=.99;x.l-=.014;ctx.globalAlpha=Math.max(0,x.l);ctx.fillStyle=x.c;ctx.beginPath();ctx.arc(x.x,x.y,1.6,0,Math.PI*2);ctx.fill()});ctx.globalAlpha=1;if(now-start<3300)requestAnimationFrame(frame);else o.remove()}requestAnimationFrame(frame);
-}
-
-async function finishWorkout(){const w=state.activeWorkout;if(!w)return;const prNames=findPRNames(w);const validItems=w.items.map(i=>({...i,sets:i.sets.filter(s=>s.value!==""||s.reps!=="")})).filter(i=>i.sets.length);if(!validItems.length){toast("Noch keine Sätze eingetragen.");return}const finished=new Date().toISOString();state.workouts.push({id:w.id,planId:w.planId,date:finished,startedAt:w.startedAt,finishedAt:finished,durationSec:Math.max(0,(Date.parse(finished)-Date.parse(w.startedAt))/1000),items:validItems});state.activeWorkout=null;await save();toast("Training gespeichert");setTab("progress");if(prNames.length)setTimeout(()=>showPRFireworks(prNames),120)}
+async function finishWorkout(){const w=state.activeWorkout;if(!w)return;const validItems=w.items.map(i=>({...i,sets:i.sets.filter(s=>s.value!==""||s.reps!=="")})).filter(i=>i.sets.length);if(!validItems.length){toast("Noch keine Sätze eingetragen.");return}const finished=new Date().toISOString();state.workouts.push({id:w.id,planId:w.planId,date:finished,startedAt:w.startedAt,finishedAt:finished,durationSec:Math.max(0,(Date.parse(finished)-Date.parse(w.startedAt))/1000),items:validItems});state.activeWorkout=null;await save();toast("Training gespeichert");setTab("progress")}
 async function cancelWorkout(){if(!state.activeWorkout)return;if(!confirm("Aktives Training wirklich verwerfen? Deine Eingaben gehen verloren."))return;state.activeWorkout=null;await save();render()}
 function recentWorkoutCard(){const w=state.workouts.at(-1);if(!w)return"";const p=state.plans.find(p=>p.id===w.planId);return `<div class="section-head"><h2>Letztes Training</h2></div><button class="card history-mini" onclick="showWorkout('${w.id}')"><b>${esc(p?.name||"Training")}</b><span>${fmtDate(w.date)} · ${fmtDuration(w.durationSec)}</span></button>`}
 
@@ -232,33 +158,12 @@ function quickAdd(){
       ${activePlan()?`<button class="choice" onclick="addToPlan(\'${activePlan().id}\')"><b>＋ Übung zum Plan hinzufügen</b><small>Eine vorhandene Übung in „${esc(activePlan().name)}“ aufnehmen</small></button>`:""}
       <button class="choice" onclick="newExercise()"><b>＋ Neue Übung erstellen</b><small>Eine Übung für deine Bibliothek anlegen</small></button>
     </div>`);
-  } else if(currentTab==="body") openBodyEntry();
-  else if(currentTab==="settings") newExercise();
+  } else if(currentTab==="settings") newExercise();
   else newExercise();
 }
 function exportData(){const payload={...state,exportedAt:new Date().toISOString(),app:"GymTrack",schemaVersion:2};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`gymtrack-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast("Backup exportiert")}
 function importData(ev){const f=ev.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=async()=>{try{const parsed=JSON.parse(r.result),n=normalize(parsed);if(!n)throw new Error();if(!confirm("Backup importieren und aktuelle lokale Daten ersetzen?"))return;state=n;await save();render();toast("Backup erfolgreich importiert.")}catch{toast("Backup ist ungültig oder beschädigt.")}finally{ev.target.value=""}};r.readAsText(f)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)}
 
-function bindUI(){
-  document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));
-  const qa=$("quickAdd"); if(qa) qa.onclick=quickAdd;
-  const close=$("closeModal"); if(close) close.onclick=closeModal;
-  const modal=$("modal"); if(modal) modal.addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});
-  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
-}
-async function boot(){
-  try{
-    const old=await load();
-    state=normalize(old)||state;
-  }catch(err){
-    console.warn("IndexedDB nicht verfügbar, starte mit lokalem Zustand.",err);
-    if(!state.plans.length) seed(state);
-  }
-  try{await save()}catch(err){console.warn("Speichern nicht verfügbar.",err)}
-  bindUI();
-  render();
-  window.__gymtrackReady=true;
-  if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js?v=20260908g").catch(()=>{});
-}
-if(document.readyState==="loading") document.addEventListener("DOMContentLoaded",boot,{once:true}); else boot();
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>setTab(b.dataset.tab));$("quickAdd").onclick=quickAdd;$("closeModal").onclick=closeModal;$("modal").addEventListener("click",e=>{if(e.target.id==="modal")closeModal()});document.addEventListener("keydown",e=>{if(e.key==="Escape")closeModal()});
+(async()=>{try{const old=await load();state=normalize(old)||state;await save();render();if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});}catch(err){console.error(err);seed(state);await save();render()}})();

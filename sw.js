@@ -1,11 +1,5 @@
-const CACHE = "gymtrack-v2-lg6-20260908g";
-const CORE = [
-  "./",
-  "./index.html",
-  "./styles.css?v=20260908g",
-  "./app.js?v=20260908g",
-  "./manifest.json"
-];
+const CACHE = "gymtrack-v2-lg5-20260908c";
+const CORE = ["./", "./index.html", "./styles.css?v=20260908c", "./app.js?v=20260908c", "./manifest.json"];
 
 self.addEventListener("install", event => {
   event.waitUntil(
@@ -26,14 +20,13 @@ self.addEventListener("activate", event => {
 });
 
 self.addEventListener("fetch", event => {
-  if(event.request.method !== "GET") return;
+  if (event.request.method !== "GET") return;
+
   event.respondWith(
     fetch(event.request)
       .then(response => {
-        if(response && response.ok){
-          const copy=response.clone();
-          caches.open(CACHE).then(cache => cache.put(event.request, copy)).catch(()=>{});
-        }
+        const copy = response.clone();
+        caches.open(CACHE).then(cache => cache.put(event.request, copy));
         return response;
       })
       .catch(() => caches.match(event.request).then(r => r || caches.match("./index.html")))
