@@ -1,5 +1,5 @@
-const CACHE = "gymtrack-v2-20260908";
-const CORE = ["./", "./index.html", "./styles.css?v=20260908", "./app.js?v=20260908", "./manifest.json"];
+const CACHE = "gymtrack-v2-20260908bb";
+const CORE = ["./", "./index.html", "./styles.css?v=20260908b", "./app.js?v=20260908b", "./manifest.json"];
 
 self.addEventListener("install", event => {
   event.waitUntil(
