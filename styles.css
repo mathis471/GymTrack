@@ -10,3 +10,22 @@
 @media(max-width:520px){.stat{grid-template-columns:repeat(2,1fr)}.topbar h1{font-size:26px}.last{max-width:125px}.we-head{flex-direction:column;gap:4px}.last{text-align:left}}@media(min-width:760px){main{padding-left:24px;padding-right:24px}}
 
 .drag-handle{touch-action:none!important}.exercise-row{cursor:pointer}.row-actions button:disabled{opacity:.28;pointer-events:none}.card-in-modal{margin:12px 0}.modal-subtitle{font-size:13px;font-weight:800;margin:18px 0 8px;color:#aeb3c0}
+
+/* Multi-select exercise picker */
+.multi-exercise-list{display:grid;gap:9px;max-height:52vh;overflow:auto;padding:2px}
+.multi-choice{display:flex;align-items:center;gap:12px;padding:14px;border-radius:17px;background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.09);cursor:pointer;transition:.18s ease}
+.multi-choice:has(input:checked){background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.22);box-shadow:inset 0 1px rgba(255,255,255,.08)}
+.multi-choice input{width:21px;height:21px;accent-color:#fff;flex:0 0 auto}
+.multi-choice span{display:flex;flex-direction:column;gap:4px;min-width:0}
+.multi-choice b{font-size:14px}
+.multi-choice small{color:#9da2ae;font-size:11px}
+
+.plan-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;cursor:pointer;margin-bottom:12px;transition:transform .2s ease,background .2s ease}
+.plan-summary:active{transform:scale(.99)}
+.plan-summary-main{display:flex;align-items:center;gap:14px;min-width:0}
+.plan-summary-main h2{margin:2px 0 4px}
+.plan-icon{width:48px;height:48px;border-radius:16px;display:grid;place-items:center;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);font-size:21px;flex:none}
+.plan-summary-actions{display:flex;align-items:center;gap:8px;flex:none}
+.chevron{font-size:28px;line-height:1;opacity:.65;width:22px;text-align:center}
+.plan-exercises{margin-top:0;margin-bottom:14px}
+.plan-exercises .full{width:100%;margin-top:12px}
