@@ -21,7 +21,8 @@ function normalize(s){
     n.workouts=Object.values(groups).map(rows=>({id:uid(),planId:n.activePlanId,date:rows[0].date||new Date().toISOString(),startedAt:rows[0].date||new Date().toISOString(),finishedAt:rows[0].date||new Date().toISOString(),durationSec:0,items:rows.map(r=>({exerciseId:r.exerciseId,sets:r.sets||[]}))}));
   }
   n.library=n.library.map(e=>({...e,id:e.id||uid(),name:String(e.name||"Übung"),unit:e.unit||"weight",defaultSets:Math.max(1,Number(e.defaultSets)||3),targetReps:String(e.targetReps??"")}));
-  n.plans=n.plans.map(p=>({...p,id:p.id||uid(),name:String(p.name||"Training"),exerciseIds:Array.isArray(p.exerciseIds)?p.exerciseIds.filter(id=>n.library.some(e=>e.id===id)):[]}));
+  n.plans=n.plans.map(p=>({...p,id:p.id||uid(),name:String(p.name||"Training"),exerciseIds:Array.isArray(p.exerciseIds)?p.exerciseIds.filter(id=>n.library.some(e=>e.id===id)):[],
+    settings:(p.settings&&typeof p.settings==="object")?p.settings:{}}));
   if(!n.plans.length) seed(n); if(!n.activePlanId || !n.plans.some(p=>p.id===n.activePlanId))n.activePlanId=n.plans[0]?.id||null;
   return n;
 }
@@ -84,7 +85,15 @@ function renderWorkout(){if(!state.activeWorkout)return `<div class="hero"><div 
 <div class="card workout-card">${w.items.map((item,idx)=>renderWorkoutExercise(item,idx)).join("")}</div><button class="primary" onclick="finishWorkout()">Training beenden</button>`}
 function renderWorkoutExercise(item,idx){const e=ex(item.exerciseId);if(!e)return"";const collapsed=(state.activeWorkout.collapsedExerciseIds||[]).includes(item.exerciseId);const complete=item.sets.length>0&&item.sets.every(s=>String(s.value??"").trim()!==""&&String(s.reps??"").trim()!=="");return `<div class="workout-exercise ${collapsed?"is-collapsed":""}"><div class="we-head"><button class="exercise-collapse" aria-label="${collapsed?"Übung öffnen":"Übung zuklappen"}" onclick="toggleExercise(${idx})"><span class="collapse-chevron">${collapsed?"›":"⌄"}</span></button><div class="we-title"><h3>${esc(e.name)}</h3><div class="exercise-meta">Ziel: ${e.targetReps?esc(e.targetReps)+" Wdh.":"frei"} · ${unitLabel(e.unit)}${complete?" · <span class=\"complete-label\">✓ Fertig</span>":""}</div></div><span class="last">${esc(lastFor(e.id))}</span></div>${collapsed?`<div class="collapsed-summary">${item.sets.filter(s=>s.value!==""||s.reps!=="").map((s,j)=>`<span>Satz ${j+1}: ${esc(s.value||"BW")} × ${esc(s.reps||"–")}</span>`).join("")||"<span>Noch keine Werte</span>"}</div>`:`<table class="set-table"><thead><tr><th>Satz</th><th>${unitLabel(e.unit)}</th><th>Wdh.</th><th></th></tr></thead><tbody>${item.sets.map((s,j)=>`<tr class="${s.done?"done":""}"><td class="set-no">${j+1}</td><td><input class="field" inputmode="decimal" value="${esc(s.value)}" placeholder="${e.unit==="time"?"Sek.":e.unit==="bodyweight"?"BW":"—"}" oninput="updateSet(${idx},${j},'value',this.value)"></td><td><input class="field" inputmode="numeric" value="${esc(s.reps)}" placeholder="—" oninput="updateSet(${idx},${j},'reps',this.value)"></td><td><button class="check ${s.done?"checked":""}" onclick="toggleSet(${idx},${j})">${s.done?"✓":"○"}</button></td></tr>`).join("")}</tbody></table><div class="set-footer"><button class="add-set" onclick="addSet(${idx})">＋ Satz</button>${item.sets.length>1?`<button class="text-btn" onclick="removeSet(${idx})">Satz entfernen</button>`:""}</div>`}</div>`}
 function lastFor(id){const rows=state.workouts.filter(w=>w.items?.some(i=>i.exerciseId===id)).sort((a,b)=>new Date(a.date)-new Date(b.date));const last=rows.at(-1)?.items.find(i=>i.exerciseId===id);if(!last)return"Noch keine Daten";const s=last.sets.find(x=>x.value!==""||x.reps!=="");return s?`Letztes Mal: ${s.value||"BW"} × ${s.reps||"–"}`:"Noch keine Daten"}
-function workoutTemplate(e){const previous=state.workouts.filter(w=>w.items?.some(i=>i.exerciseId===e.id)).sort((a,b)=>new Date(a.date)-new Date(b.date)).at(-1)?.items.find(i=>i.exerciseId===e.id);const prevSets=previous?.sets||[];return Array.from({length:Math.max(e.defaultSets||3,prevSets.length||0)},(_,i)=>({value:prevSets[i]?.value??(e.unit==="bodyweight"?"BW":""),reps:prevSets[i]?.reps??e.targetReps??"",done:false}))}
+function workoutTemplate(e, plan=activePlan()){
+ const cfg=plan?.settings?.[e.id]||{};
+ const previous=state.workouts.filter(w=>w.items?.some(i=>i.exerciseId===e.id)).sort((a,b)=>new Date(a.date)-new Date(b.date)).at(-1)?.items.find(i=>i.exerciseId===e.id);
+ const prevSets=previous?.sets||[];
+ const count=Math.max(1,Number(cfg.sets)||prevSets.length||Number(e.defaultSets)||3);
+ const presetValue=cfg.weight!==undefined?String(cfg.weight):undefined;
+ const presetReps=cfg.reps!==undefined?String(cfg.reps):undefined;
+ return Array.from({length:count},(_,i)=>({value:presetValue!==undefined?presetValue:(prevSets[i]?.value??(e.unit==="bodyweight"?"BW":"")),reps:presetReps!==undefined?presetReps:(prevSets[i]?.reps??e.targetReps??""),done:false}));
+}
 async function startWorkout(){
  if(state.activeWorkout){setTab("workout");return}
  const p=activePlan();if(!p)return;
@@ -94,11 +103,11 @@ async function startWorkout(){
 async function confirmStartWorkout(){
  const date=$("workoutDate")?.value||new Date().toISOString().slice(0,10);
  const p=activePlan();if(!p)return;
- state.activeWorkout={id:uid(),planId:p.id,workoutDate:date,startedAt:new Date().toISOString(),collapsedExerciseIds:[],items:p.exerciseIds.map(id=>({exerciseId:id,sets:workoutTemplate(ex(id))}))};
+ state.activeWorkout={id:uid(),planId:p.id,workoutDate:date,startedAt:new Date().toISOString(),collapsedExerciseIds:[],items:p.exerciseIds.map(id=>({exerciseId:id,sets:workoutTemplate(ex(id),p)}))};
  await save();closeModal();setTab("workout");
 }
 let saveTimer=null;function queueSave(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>save(),250)}
-function updateSet(i,j,k,v){if(!state.activeWorkout)return;state.activeWorkout.items[i].sets[j][k]=v;const item=state.activeWorkout.items[i];const complete=item.sets.length>0&&item.sets.every(x=>String(x.value??"").trim()!==""&&String(x.reps??"").trim()!=="");if(complete){state.activeWorkout.collapsedExerciseIds=[...(state.activeWorkout.collapsedExerciseIds||[]).filter(id=>id!==item.exerciseId),item.exerciseId];queueSave();render()}else queueSave()} 
+function updateSet(i,j,k,v){if(!state.activeWorkout)return;state.activeWorkout.items[i].sets[j][k]=v;queueSave()} 
 function toggleExercise(i){if(!state.activeWorkout)return;const item=state.activeWorkout.items[i];const ids=new Set(state.activeWorkout.collapsedExerciseIds||[]);ids.has(item.exerciseId)?ids.delete(item.exerciseId):ids.add(item.exerciseId);state.activeWorkout.collapsedExerciseIds=[...ids];save();render()}
 function toggleSet(i,j){state.activeWorkout.items[i].sets[j].done=!state.activeWorkout.items[i].sets[j].done;save();render()}
 function addSet(i){const item=state.activeWorkout.items[i];item.sets.push({value:"",reps:"",done:false});state.activeWorkout.collapsedExerciseIds=(state.activeWorkout.collapsedExerciseIds||[]).filter(id=>id!==item.exerciseId);save();render()}
@@ -111,7 +120,7 @@ function renderProgress(){
  const totalSets=state.workouts.reduce((a,w)=>a+w.items.reduce((b,i)=>b+i.sets.length,0),0);
  const tracked=state.library.filter(e=>state.workouts.some(w=>w.items.some(i=>i.exerciseId===e.id)));
  return `<div class="stat"><div class="stat-box"><strong>${state.workouts.length}</strong><span>Trainings</span></div><div class="stat-box"><strong>${totalSets}</strong><span>Sätze</span></div><div class="stat-box"><strong>${bestCount()}</strong><span>Übungen verfolgt</span></div></div>
- <div class="accordion-section"><button class="accordion-head" onclick="toggleProgressHistory()"><div><div class="eyebrow">HISTORIE</div><h2>Abgeschlossene Trainings</h2></div><span class="accordion-chevron">${progressHistoryOpen?"⌄":"›"}</span></button>
+ <div class="accordion-section"><button type="button" class="accordion-head history-toggle" onclick="event.preventDefault();event.stopPropagation();toggleProgressHistory()"><div><div class="eyebrow">HISTORIE</div><h2>Abgeschlossene Trainings</h2></div><span class="accordion-chevron">${progressHistoryOpen?"⌄":"›"}</span></button>
  ${progressHistoryOpen?(state.workouts.length?state.workouts.slice().reverse().map(w=>historyCard(w)).join(""):`<div class="empty">Nach deinem ersten Training erscheint hier deine Historie.</div>`):""}</div>
  <div class="section-head"><h2>Übungsfortschritt</h2></div>
  ${tracked.map(e=>progressCard(e)).join("")||`<div class="muted small">Noch keine Übungen mit gespeicherten Werten.</div>`}`
@@ -180,8 +189,34 @@ function exerciseForm(e={}){return `<div class="form-grid"><div><label class="la
 async function saveExercise(id){const name=$("fName").value.trim();if(!name){toast("Bitte einen Namen eingeben.");return}const data={name,unit:$("fUnit").value,defaultSets:Math.min(20,Math.max(1,Number($("fSets").value)||3)),targetReps:$("fReps").value.trim()};if(id)Object.assign(ex(id),data);else{data.id=uid();state.library.push(data)}await save();closeModal();render();toast("Übung gespeichert")}
 async function deleteExercise(id){if(state.plans.some(p=>p.exerciseIds.includes(id))){toast("Übung zuerst aus allen Plänen entfernen.");return}if(!confirm("Übung wirklich löschen? Die historische Aufzeichnung bleibt erhalten."))return;state.library=state.library.filter(e=>e.id!==id);await save();closeModal();render()}
 function newPlan(){openModal("Neuer Trainingsplan",`<div class="form-grid"><div><label class="label">Name</label><input id="planName" class="field" placeholder="z. B. Pull"></div><button class="primary" onclick="savePlan()">Plan erstellen</button></div>`)}
-async function savePlan(){const n=$("planName").value.trim();if(!n){toast("Bitte einen Namen eingeben.");return}const p={id:uid(),name:n,exerciseIds:[]};state.plans.push(p);state.activePlanId=p.id;await save();closeModal();render()}
-function editPlan(id){const p=state.plans.find(x=>x.id===id);openModal("Plan bearbeiten",`<div class="form-grid"><div><label class="label">Name</label><input id="planName" class="field" value="${esc(p.name)}"></div><button class="primary" onclick="renamePlan('${p.id}')">Speichern</button><button class="secondary" onclick="addToPlan('${p.id}')">＋ Übung hinzufügen</button>${state.plans.length>1?`<button class="secondary danger" onclick="deletePlan('${p.id}')">Plan löschen</button>`:""}</div>`)}
+async function savePlan(){const n=$("planName").value.trim();if(!n){toast("Bitte einen Namen eingeben.");return}const p={id:uid(),name:n,exerciseIds:[],settings:{}};state.plans.push(p);state.activePlanId=p.id;await save();closeModal();render();editPlan(p.id)}
+function planSetting(p,eid){return p.settings?.[eid]||{}}
+function editPlan(id){
+ const p=state.plans.find(x=>x.id===id);if(!p)return;
+ const rows=p.exerciseIds.map(eid=>{
+   const e=ex(eid),c=planSetting(p,eid);
+   return `<div class="plan-edit-exercise"><div class="plan-edit-title"><b>${esc(e.name)}</b><span class="muted small">${unitLabel(e.unit)}</span></div>
+   <div class="two plan-preset-grid"><div><label class="label">Gewicht</label><input class="field plan-weight" data-eid="${eid}" value="${esc(c.weight??"")}" placeholder="${e.unit==="weight"?"z. B. 80":e.unit==="bodyweight"?"BW":"—"}" ${e.unit!=="weight"&&e.unit!=="bodyweight"?"disabled":""}></div>
+   <div><label class="label">Wiederholungen</label><input class="field plan-reps" data-eid="${eid}" value="${esc(c.reps??e.targetReps??"")}" placeholder="z. B. 8"></div></div>
+   <div><label class="label">Sätze</label><input class="field plan-sets" data-eid="${eid}" type="number" min="1" max="20" value="${Number(c.sets)||e.defaultSets||3}"></div>
+   <button class="text-btn danger-text" onclick="removeFromPlanAndEdit('${p.id}','${eid}')">Aus Plan entfernen</button></div>`;
+ }).join("");
+ openModal("Plan bearbeiten",`<div class="form-grid"><div><label class="label">Name</label><input id="planName" class="field" value="${esc(p.name)}"></div>
+ <div class="section-head"><h3>Übungen</h3><button class="secondary" onclick="addToPlan('${p.id}')">＋ Übung hinzufügen</button></div>
+ <div class="plan-edit-list">${rows||`<div class="empty compact">Noch keine Übungen im Plan.</div>`}</div>
+ <button class="primary" onclick="savePlanSettings('${p.id}')">Plan speichern</button>
+ ${state.plans.length>1?`<button class="secondary danger" onclick="deletePlan('${p.id}')">Plan löschen</button>`:""}</div>`);
+}
+async function savePlanSettings(id){
+ const p=state.plans.find(x=>x.id===id);if(!p)return;
+ const n=$("planName").value.trim();if(n)p.name=n;
+ p.settings=p.settings||{};
+ document.querySelectorAll(".plan-sets").forEach(el=>{const eid=el.dataset.eid;p.settings[eid]=p.settings[eid]||{};p.settings[eid].sets=Math.min(20,Math.max(1,Number(el.value)||3));});
+ document.querySelectorAll(".plan-reps").forEach(el=>{const eid=el.dataset.eid;p.settings[eid]=p.settings[eid]||{};p.settings[eid].reps=el.value.trim();});
+ document.querySelectorAll(".plan-weight").forEach(el=>{const eid=el.dataset.eid;p.settings[eid]=p.settings[eid]||{};p.settings[eid].weight=el.value.trim();});
+ await save();closeModal();render();toast("Plan gespeichert");
+}
+function removeFromPlanAndEdit(pid,eid){removeFromPlan(pid,eid).then(()=>editPlan(pid))}
 async function renamePlan(id){const p=state.plans.find(x=>x.id===id),n=$("planName").value.trim();if(n)p.name=n;await save();closeModal();render()}
 async function deletePlan(id){if(state.plans.length===1){toast("Der letzte Plan kann nicht gelöscht werden.");return}if(state.activeWorkout?.planId===id){toast("Beende oder verwerfe zuerst das aktive Training.");return}if(!confirm("Plan wirklich löschen? Die Trainingshistorie bleibt erhalten."))return;state.plans=state.plans.filter(p=>p.id!==id);if(state.activePlanId===id)state.activePlanId=state.plans[0].id;await save();closeModal();render()}
 function addToPlan(pid){

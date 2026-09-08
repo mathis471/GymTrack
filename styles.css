@@ -62,3 +62,13 @@
 .accordion-card{padding:16px}
 .progress-open-meta{font-size:12px;color:#aeb3c0;margin-top:10px}
 @media(max-width:620px){.plan-row-actions{width:100%;min-width:0;grid-template-columns:1fr 1fr}.plan-row{align-items:flex-start;flex-direction:column}}
+
+/* Plan presets */
+.plan-edit-list{display:grid;gap:12px}
+.plan-edit-exercise{padding:14px;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.035)}
+.plan-edit-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.plan-preset-grid{margin-bottom:10px}
+.plan-edit-exercise .label{margin-bottom:5px}
+.danger-text{color:var(--danger)!important;padding-left:0!important}
+.history-toggle{cursor:pointer;min-height:64px;position:relative;z-index:2;pointer-events:auto}
+.accordion-section .accordion-head{touch-action:manipulation}
