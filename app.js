@@ -28,43 +28,32 @@ function seed(s){const exercises=[["Bankdrücken","weight",3,"8"],["Schrägbankd
 const activePlan=()=>state.plans.find(p=>p.id===state.activePlanId)||state.plans[0];
 const ex=id=>state.library.find(e=>e.id===id);
 const setTab=t=>{currentTab=t;document.querySelectorAll(".tab").forEach(b=>b.classList.toggle("active",b.dataset.tab===t));render()};
-function render(){const titles={plan:"Mein Plan",workout:"Training",progress:"Fortschritt",body:"Körper",settings:"Mehr"};$("pageTitle").textContent=titles[currentTab];$("quickAdd").style.display=currentTab==="settings"?"none":"block";$("content").innerHTML={plan:renderPlan,workout:renderWorkout,progress:renderProgress,body:renderBody,settings:renderSettings}[currentTab]();if(currentTab==="plan")initExerciseReorder();}
+function render(){const titles={plan:"Mein Plan",workout:"Training",progress:"Fortschritt",body:"Körper",settings:"Mehr"};$("pageTitle").textContent=titles[currentTab];$("quickAdd").style.display=currentTab==="settings"?"none":"block";$("content").innerHTML={plan:renderPlan,workout:renderWorkout,progress:renderProgress,body:renderBody,settings:renderSettings}[currentTab]();}
 
 function renderPlan(){
- const current=activePlan();
- if(!current) return `<div class="empty">Noch kein Trainingsplan vorhanden.</div>`;
- const isExpanded=expandedPlanId===current.id;
- const planCard=(p,expanded=false)=>`
-   <div class="card plan-summary ${expanded?"expanded":""}" onclick="openPlan('${p.id}')">
-     <div class="plan-summary-main">
-       <div class="plan-icon">▦</div>
-       <div><div class="eyebrow">${p.id===state.activePlanId?"AKTUELLER PLAN":"TRAININGSPLAN"}</div>
-       <h2>${esc(p.name)}</h2><div class="muted">${p.exerciseIds.length} Übungen</div></div>
-     </div>
-     <div class="plan-summary-actions">
-       ${p.id===state.activePlanId?`<button class="secondary" onclick="event.stopPropagation();editPlan('${p.id}')">Bearbeiten</button>`:""}
-       <span class="chevron">${expanded?"⌃":"›"}</span>
-     </div>
-   </div>`;
- const weekWorkouts=state.workouts.filter(w=>Date.now()-Date.parse(w.date)<7*864e5);
- const weekVolume=weekWorkouts.reduce((a,w)=>a+workoutVolume(w),0);
- const last=state.workouts.at(-1);
+ const plans=state.plans||[];
+ if(!plans.length) return `<div class="empty">Noch kein Trainingsplan vorhanden.<br><button class="primary" onclick="newPlan()" style="margin-top:12px">＋ Plan erstellen</button></div>`;
  return `
- <div class="section-head"><div><div class="eyebrow">ÜBERSICHT</div><h2>Dein Training</h2></div></div>
- <div class="overview-grid"><div class="card overview-stat"><strong>${weekWorkouts.length}</strong><span>Trainings · 7 Tage</span></div><div class="card overview-stat"><strong>${formatKg(weekVolume)}</strong><span>Volumen · 7 Tage</span></div></div>
- ${last?`<button class="card history-mini" onclick="showWorkout('${last.id}')"><div><b>Letztes Training</b><span>${esc(state.plans.find(p=>p.id===last.planId)?.name||"Training")} · ${fmtDate(last.date)}</span></div><strong>${formatKg(workoutVolume(last))}</strong></button>`:""}
- <div class="section-head"><div><div class="eyebrow">DEINE TRAININGSPLÄNE</div><h2>Pläne</h2></div></div>
- ${planCard(current,isExpanded)}
- ${isExpanded?`
-   <div class="card plan-exercises">
-     <div class="list-head"><span>${current.exerciseIds.length} Übungen</span><span class="muted">Antippen für Fortschritt</span></div>
-     ${current.exerciseIds.length?current.exerciseIds.map((id,idx)=>{const e=ex(id);return e?`<div class="exercise-row" data-exercise-id="${e.id}" onclick="openExerciseProgress('${e.id}')"><button class="drag-handle" aria-label="${esc(e.name)} verschieben" title="Halten und ziehen">☷</button><div class="exercise-info"><div class="exercise-name">${esc(e.name)}</div><div class="exercise-meta">${e.defaultSets} Sätze · ${e.targetReps?esc(e.targetReps)+" Wdh. · ":""}${unitLabel(e.unit)}</div></div><div class="row-actions"><button aria-label="Nach oben" onclick="event.stopPropagation();moveExercise('${current.id}','${e.id}',-1)" ${idx===0?"disabled":""}>↑</button><button aria-label="Nach unten" onclick="event.stopPropagation();moveExercise('${current.id}','${e.id}',1)" ${idx===current.exerciseIds.length-1?"disabled":""}>↓</button><button aria-label="Bearbeiten" onclick="event.stopPropagation();editExercise('${e.id}')">•••</button><button class="delete-row" aria-label="${esc(e.name)} aus Plan entfernen" onclick="event.stopPropagation();removeFromPlan('${current.id}','${e.id}')">×</button></div></div>`:""}).join(""):`<div class="empty compact">Noch keine Übungen. Füge über „Bearbeiten“ Übungen hinzu.</div>`}
-     <button class="secondary full" onclick="addToPlan('${current.id}')">＋ Übungen hinzufügen</button>
+ <div class="section-head"><div><div class="eyebrow">TRAINING</div><h2>Deine Pläne</h2></div><button class="secondary" onclick="newPlan()">＋ Plan</button></div>
+ <div class="plan-list">
+ ${plans.map(p=>`<div class="card plan-row">
+   <div class="plan-summary-main">
+     <div class="plan-icon">▦</div>
+     <div><div class="eyebrow">${p.id===state.activePlanId?"ZULETZT GEWÄHLT":"TRAININGSPLAN"}</div><h2>${esc(p.name)}</h2><div class="muted">${p.exerciseIds.length} Übungen</div></div>
    </div>
-   <button class="primary" onclick="startWorkout()">${state.activeWorkout&&state.activeWorkout.planId===current.id?"Training fortsetzen":"Training starten"}</button>
- `:""}
- <div class="section-head"><h2>Weitere Pläne</h2><button class="secondary" onclick="newPlan()">＋ Plan</button></div>
- ${state.plans.filter(x=>x.id!==current.id).map(x=>planCard(x,expandedPlanId===x.id)).join("")||`<div class="muted small">Erstelle z. B. Pull, Legs oder einen Ganzkörperplan.</div>`}`;
+   <div class="plan-row-actions">
+     <button class="secondary" onclick="editPlan('${p.id}')">Bearbeiten</button>
+     <button class="primary" onclick="startPlan('${p.id}')">${state.activeWorkout&&state.activeWorkout.planId===p.id?"Fortsetzen":"Starten"}</button>
+   </div>
+ </div>`).join("")}
+ </div>
+ `;
+}
+function startPlan(id){
+ const p=state.plans.find(x=>x.id===id); if(!p)return;
+ state.activePlanId=id;
+ expandedPlanId=null;
+ save().then(()=>startWorkout());
 }
 function openPlan(id){
  const p=state.plans.find(x=>x.id===id); if(!p)return;
@@ -108,33 +97,42 @@ function recentWorkoutCard(){const w=state.workouts.at(-1);if(!w)return"";const 
 
 function renderProgress(){
  const totalSets=state.workouts.reduce((a,w)=>a+w.items.reduce((b,i)=>b+i.sets.length,0),0);
- const totalVolume=state.workouts.reduce((a,w)=>a+workoutVolume(w),0);
- const week=state.workouts.filter(w=>Date.now()-Date.parse(w.date)<7*864e5);
- const weekVolume=week.reduce((a,w)=>a+workoutVolume(w),0);
- return `<div class="stat"><div class="stat-box"><strong>${state.workouts.length}</strong><span>Trainings</span></div><div class="stat-box"><strong>${totalSets}</strong><span>Sätze</span></div><div class="stat-box"><strong>${formatKg(weekVolume)}</strong><span>Volumen · 7 Tage</span></div><div class="stat-box"><strong>${bestCount()}</strong><span>Übungen verfolgt</span></div></div>
- <div class="card volume-summary"><div><div class="eyebrow">TRAININGSVOLUMEN</div><h2>${formatKg(totalVolume)}</h2><p class="muted">Gesamtes Volumen aus Übungen mit Gewichtsangabe.</p></div><div class="volume-week"><b>${formatKg(weekVolume)}</b><span>diese Woche</span></div></div>
+ return `<div class="stat"><div class="stat-box"><strong>${state.workouts.length}</strong><span>Trainings</span></div><div class="stat-box"><strong>${totalSets}</strong><span>Sätze</span></div><div class="stat-box"><strong>${bestCount()}</strong><span>Übungen verfolgt</span></div></div>
  <div class="section-head"><h2>Historie</h2></div>${state.workouts.length?state.workouts.slice().reverse().map(w=>historyCard(w)).join(""):`<div class="empty">Nach deinem ersten Training erscheint hier deine Historie.</div>`}
  <div class="section-head"><h2>Übungsfortschritt</h2></div>${state.library.filter(e=>state.workouts.some(w=>w.items.some(i=>i.exerciseId===e.id))).map(e=>progressCard(e)).join("")||`<div class="muted small">Noch keine Übungen mit gespeicherten Werten.</div>`}`
 }
-function workoutVolume(w){return (w?.items||[]).reduce((total,i)=>{const e=ex(i.exerciseId);if(e?.unit!=="weight")return total;return total+i.sets.reduce((sum,s)=>{const kg=parseFloat(String(s.value??"").replace(",","."));const reps=parseFloat(String(s.reps??"").replace(",","."));return sum+(Number.isFinite(kg)&&kg>0&&Number.isFinite(reps)&&reps>0?kg*reps:0)},0)},0)}
-function formatKg(v){if(!v)return "0 kg";return `${new Intl.NumberFormat("de-DE",{maximumFractionDigits:1}).format(v)} kg`}
+function historyCard(w){const p=state.plans.find(p=>p.id===w.planId);const sets=w.items.reduce((a,i)=>a+i.sets.length,0);return `<button class="card history-card" onclick="showWorkout('${w.id}')"><div><b>${esc(p?.name||"Training")}</b><div class="exercise-meta">${fmtDate(w.date)}</div></div><div class="history-right"><b>${sets} Sätze</b><span>${fmtDuration(w.durationSec)}</span></div></button>`}
+function progressValues(id){
+ const vals=[];
+ state.workouts.forEach(w=>w.items.filter(i=>i.exerciseId===id).forEach(i=>i.sets.forEach(set=>{
+   const v=parseFloat(String(set.value??"").replace(",",".")); if(Number.isFinite(v)&&v>0) vals.push({v,date:w.date});
+ })));
+ return vals.sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
+}
 function bestCount(){return state.library.reduce((n,e)=>n+(progressValues(e.id).length?1:0),0)}
-function historyCard(w){const p=state.plans.find(p=>p.id===w.planId);const sets=w.items.reduce((a,i)=>a+i.sets.length,0);return `<button class="card history-card" onclick="showWorkout('${w.id}')"><div><b>${esc(p?.name||"Training")}</b><div class="exercise-meta">${fmtDate(w.date)}</div></div><div class="history-right"><b>${sets} Sätze</b><span>${formatKg(workoutVolume(w))} · ${fmtDuration(w.durationSec)}</span></div></button>`}
-function progressValues(id){const vals=[];state.workouts.forEach(w=>w.items.filter(i=>i.exerciseId===id).forEach(i=>i.sets.forEach(s=>{const v=parseFloat(String(s.value).replace(",","."));if(Number.isFinite(v)&&v>0)vals.push({v,date:w.date})})));return vals.sort((a,b)=>new Date(a.date)-new Date(b.date))}
-function progressCard(e){const vals=progressValues(e.id),last=vals.at(-1)?.v,best=vals.length?Math.max(...vals.map(x=>x.v)):null;const volumes=exerciseVolumeHistory(e.id);const latestVol=volumes.at(-1)?.v||0;const previousVol=volumes.at(-2)?.v||0;const change=previousVol?((latestVol-previousVol)/previousVol)*100:null;return `<div class="card progress-item"><div class="phead"><div><b>${esc(e.name)}</b><div class="exercise-meta">Bestwert ${best??"—"} ${vals.length?unitLabel(e.unit):""}</div></div><b>${last??"—"} ${last!=null?unitLabel(e.unit):""}</b></div>${e.unit==="weight"?`<div class="progress-volume"><span>Letztes Volumen</span><strong>${formatKg(latestVol)}</strong>${change!==null?`<em>${change>=0?"↑":"↓"} ${Math.abs(change).toFixed(1)} %</em>`:""}</div>`:""}${chart(vals.map(x=>x.v))}</div>`}
-function exerciseVolumeHistory(id){return state.workouts.map(w=>{const item=w.items.find(i=>i.exerciseId===id);if(!item)return null;const e=ex(id);if(e?.unit!=="weight")return null;const v=item.sets.reduce((a,s)=>{const kg=parseFloat(String(s.value??"").replace(",","."));const reps=parseFloat(String(s.reps??"").replace(",","."));return a+(Number.isFinite(kg)&&Number.isFinite(reps)?kg*reps:0)},0);return {v,date:w.date}}).filter(Boolean).sort((a,b)=>Date.parse(a.date)-Date.parse(b.date))}
-
-function chart(vals){if(!vals.length)return"";const max=Math.max(...vals),min=Math.min(...vals),range=max-min||1,w=360,h=120;const pts=vals.map((v,i)=>`${i*(w/Math.max(vals.length-1,1))},${h-((v-min)/range)*(h-20)-10}`).join(" ");return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${vals.map((v,i)=>{const [x,y]=pts.split(" ")[i].split(",");return `<circle cx="${x}" cy="${y}" r="4" fill="currentColor"/>`}).join("")}</svg><div class="chart-labels"><span>${min}</span><span>${max}</span></div></div>`}
-function showWorkout(id){const w=state.workouts.find(x=>x.id===id);if(!w)return;const p=state.plans.find(x=>x.id===w.planId);openModal(`${p?.name||"Training"} · ${fmtDate(w.date)}`,`<div class="detail-summary"><div><b>${formatKg(workoutVolume(w))}</b><span>Volumen</span></div><div><b>${fmtDuration(w.durationSec)}</b><span>${w.items.reduce((a,i)=>a+i.sets.length,0)} Sätze · ${w.items.length} Übungen</span></div></div>${w.items.map(i=>{const e=ex(i.exerciseId);return `<div class="detail-ex"><b>${esc(e?.name||"Übung")}</b>${i.sets.map((s,j)=>`<div class="detail-set"><span>Satz ${j+1}</span><span>${esc(s.value||"—")} ${e?unitLabel(e.unit):""} × ${esc(s.reps||"—")}</span></div>`).join("")}</div>`}).join("")}`)}
-
+function progressCard(e){
+ const vals=progressValues(e.id), last=vals.at(-1)?.v, best=vals.length?Math.max(...vals.map(x=>x.v)):null;
+ return `<div class="card progress-item" onclick="openExerciseProgress('${e.id}')"><div class="phead"><div><b>${esc(e.name)}</b><div class="exercise-meta">${vals.length} Messwerte · Bestwert ${best??"—"} ${vals.length?unitLabel(e.unit):""}</div></div><b>${last??"—"} ${last!=null?unitLabel(e.unit):""}</b></div>${e.unit==="weight"&&vals.length?chartTimeWeight(vals):""}</div>`
+}
+function chartTimeWeight(vals){
+ if(!vals.length)return"";
+ const width=420,height=150,padX=10,padY=18;
+ const min=Math.min(...vals.map(x=>x.v)),max=Math.max(...vals.map(x=>x.v)),range=max-min||1;
+ const x0=padX,x1=width-padX,y0=height-padY,y1=padY;
+ const pts=vals.map((x,i)=>{const px=x0+(i/Math.max(vals.length-1,1))*(x1-x0);const py=y0-((x.v-min)/range)*(y0-y1);return {x:px,y:py,v:x.v,date:x.date};});
+ const points=pts.map(p=>`${p.x},${p.y}`).join(" ");
+ const labels=vals.length===1?[fmtDate(vals[0].date)]:[fmtDate(vals[0].date),fmtDate(vals.at(-1).date)];
+ return `<div class="chart time-weight-chart" aria-label="Gewichtsverlauf über die Zeit"><svg viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><polyline points="${points}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="4" fill="currentColor"><title>${fmtDate(p.date)} · ${p.v} ${unitLabel("weight")}</title></circle>`).join("")}</svg><div class="chart-axis"><span>${esc(labels[0])}</span><span>${esc(labels.at(-1))}</span></div><div class="chart-labels"><span>${min} kg</span><span>${max} kg</span></div></div>`;
+}
 function openExerciseProgress(id){
  const e=ex(id); if(!e)return;
  const vals=progressValues(id);
  const best=vals.length?Math.max(...vals.map(x=>x.v)):null;
  const avg=vals.length?(vals.reduce((a,x)=>a+x.v,0)/vals.length):null;
  const sessions=state.workouts.filter(w=>w.items.some(i=>i.exerciseId===id)).slice().reverse();
- openModal(esc(e.name),`<div class="detail-summary"><div><b>${best??"—"} ${best!=null?unitLabel(e.unit):""}</b><span>Bestwert</span></div><div><b>${avg!=null?avg.toFixed(1):"—"} ${avg!=null?unitLabel(e.unit):""}</b><span>Ø Wert</span></div><div><b>${vals.length}</b><span>Messwerte</span></div></div>${vals.length?`<div class="card-in-modal">${chart(vals.map(x=>x.v))}</div>`:`<div class="empty compact">Noch kein Fortschritt aufgezeichnet. Starte ein Training mit dieser Übung.</div>`}<div class="modal-subtitle">Letzte Einheiten</div>${sessions.slice(0,8).map(w=>{const item=w.items.find(i=>i.exerciseId===id);return `<div class="detail-ex"><div class="phead"><b>${fmtDate(w.date)}</b><span class="muted">${item?.sets?.length||0} Sätze</span></div>${(item?.sets||[]).map((set,j)=>`<div class="detail-set"><span>Satz ${j+1}</span><span>${esc(set.value||"—")} ${unitLabel(e.unit)} × ${esc(set.reps||"—")} Wdh.</span></div>`).join("")}</div>`}).join("")||""}`);
+ openModal(esc(e.name),`<div class="detail-summary"><div><b>${best??"—"} ${best!=null?unitLabel(e.unit):""}</b><span>Bestwert</span></div><div><b>${avg!=null?avg.toFixed(1):"—"} ${avg!=null?unitLabel(e.unit):""}</b><span>Ø Wert</span></div><div><b>${vals.length}</b><span>Messwerte</span></div></div>${vals.length&&e.unit==="weight"?`<div class="card-in-modal">${chartTimeWeight(vals)}</div>`:`${vals.length?`<div class="card-in-modal">${chart(vals.map(x=>x.v))}</div>`:`<div class="empty compact">Noch kein Fortschritt aufgezeichnet. Starte ein Training mit dieser Übung.</div>`}`}<div class="modal-subtitle">Letzte Einheiten</div>${sessions.slice(0,8).map(w=>{const item=w.items.find(i=>i.exerciseId===id);return `<div class="detail-ex"><div class="phead"><b>${fmtDate(w.date)}</b><span class="muted">${item?.sets?.length||0} Sätze</span></div>${(item?.sets||[]).map((set,j)=>`<div class="detail-set"><span>Satz ${j+1}</span><span>${esc(set.value||"—")} ${unitLabel(e.unit)} × ${esc(set.reps||"—")} Wdh.</span></div>`).join("")}</div>`}).join("")||""}`);
 }
+function chart(vals){if(!vals.length)return"";const max=Math.max(...vals),min=Math.min(...vals),range=max-min||1,w=360,h=120;const pts=vals.map((v,i)=>`${i*(w/Math.max(vals.length-1,1))},${h-((v-min)/range)*(h-20)-10}`).join(" ");return `<div class="chart"><svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>${vals.map((v,i)=>{const [x,y]=pts.split(" ")[i].split(",");return `<circle cx="${x}" cy="${y}" r="4" fill="currentColor"/>`}).join("")}</svg><div class="chart-labels"><span>${min}</span><span>${max}</span></div></div>`}
 function renderBody(){
  const latest=latestBody();
  const metrics=[['weight','Gewicht','kg'],['chest','Brust','cm'],['waist','Taille','cm'],['arm','Arm','cm'],['thigh','Oberschenkel','cm']];
@@ -197,7 +195,7 @@ function quickAdd(){
   else if(currentTab==="settings") newExercise();
   else newExercise();
 }
-function exportData(){const payload={...state,exportedAt:new Date().toISOString(),app:"GymTrack",schemaVersion:3};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`gymtrack-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast("Backup exportiert")}
+function exportData(){const payload={...state,exportedAt:new Date().toISOString(),app:"GymTrack",schemaVersion:4};const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`gymtrack-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);toast("Backup exportiert")}
 function importData(ev){const f=ev.target.files?.[0];if(!f)return;const r=new FileReader();r.onload=async()=>{try{const parsed=JSON.parse(r.result),n=normalize(parsed);if(!n)throw new Error();if(!confirm("Backup importieren und aktuelle lokale Daten ersetzen?"))return;state=n;await save();render();toast("Backup erfolgreich importiert.")}catch{toast("Backup ist ungültig oder beschädigt.")}finally{ev.target.value=""}};r.readAsText(f)}
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)}
 
